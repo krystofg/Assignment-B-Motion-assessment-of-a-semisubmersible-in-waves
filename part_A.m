@@ -160,3 +160,7 @@ fprintf('Q6 recovered Hs = %.4f m\n', Hs_from_m0);
 fprintf('Q6 recovered Tp = %.4f s\n', Tp_num);
 fprintf('Q6 recovered T1 = %.4f s\n', T1);
 fprintf('Q6 recovered Tz = %.4f s\n', Tz_from_moments);
+
+%% Save outputs for Part B
+save('PartA_results.mat', ...
+    'omega', 'S_omega', 'Hs', 'Tz');
