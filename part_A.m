@@ -33,8 +33,9 @@ grid on;
 
 fprintf('\nQ1:\n');
 fprintf('Maximum wave height in one simulated storm: Hmax = %.4f m\n', Hmax_single);
-
 %% Q2 - Repeat 10,000 realizations and store Hmax
+rng(1);   % reproducibility
+
 Nstorms = 10000;
 Hmax_all = zeros(Nstorms,1);
 
@@ -52,32 +53,30 @@ title('Q2: Empirical PDF of storm maxima from 10,000 realizations');
 grid on;
 hold on;
 
-% Fit extreme value distribution (Gumbel / extreme value type I)
-pd = fitdist(Hmax_all, 'ExtremeValue');
+% Safer extreme-value fit for maxima
+pd = fitdist(Hmax_all, 'GeneralizedExtremeValue');
 
-xfit = linspace(min(Hmax_all), max(Hmax_all), 1000);
+xfit = linspace(min(Hmax_all), max(Hmax_all)+5, 2000);
 yfit = pdf(pd, xfit);
 
 plot(xfit, yfit, 'r', 'LineWidth', 2);
-legend('Empirical PDF', 'Extreme value fit', 'Location', 'best');
+legend('Empirical PDF', 'GEV fit', 'Location', 'best');
 
 fprintf('\nQ2:\n');
-fprintf('Extreme value fit parameters:\n');
-fprintf('mu   = %.6f\n', pd.mu);
-fprintf('sigma= %.6f\n', pd.sigma);
+fprintf('GEV fit parameters:\n');
+fprintf('k     = %.6f\n', pd.k);
+fprintf('sigma = %.6f\n', pd.sigma);
+fprintf('mu    = %.6f\n', pd.mu);
 
 %% Q3 - MPL for 10,000 such storms
-% If F(x) is the CDF of one-storm maxima, then the maximum over M storms:
-% F_M(x) = F(x)^M
-% f_M(x) = M * f(x) * F(x)^(M-1)
+M = 10000;
 
-M = 10000;   % number of storms
-xmpl = linspace(min(Hmax_all), max(Hmax_all) + 5, 20000);
+xmpl = linspace(min(Hmax_all), max(Hmax_all)+8, 50000);
 
 F1 = cdf(pd, xmpl);
 f1 = pdf(pd, xmpl);
 
-fM = M * f1 .* (F1.^(M-1));
+fM = M .* f1 .* F1.^(M-1);
 
 [~, idxMPL] = max(fM);
 Hmax_MPL = xmpl(idxMPL);
@@ -87,20 +86,16 @@ fprintf('Most probable largest wave height over %d storms: Hmax,MPL = %.4f m\n',
 
 figure;
 plot(xmpl, fM, 'LineWidth', 2);
-xlabel('Wave height [m]');
-ylabel('PDF of maximum over 10,000 storms');
-title('Q3: PDF of maximum wave height over 10,000 storms');
+xlabel('Wave height H [m]');
+ylabel('PDF of largest maximum over 10,000 storms');
+title('Q3: PDF of largest H_{max} over 10,000 storms');
 grid on;
 
-%% Q4 - Probability that a larger value than Hmax,MPL occurs
-% Exceedance probability for the maximum over M storms:
-% P(X > x) = 1 - F_M(x)
-
-P_exceed = 1 - (cdf(pd, Hmax_MPL)^M);
+%% Q4 - Probability of exceeding Hmax,MPL
+P_exceed = 1 - cdf(pd, Hmax_MPL)^M;
 
 fprintf('\nQ4:\n');
 fprintf('Probability of exceeding Hmax,MPL: %.6f\n', P_exceed);
-
 %% Q5 - Bretschneider spectrum
 % Use a common Bretschneider form in angular frequency:
 % S(omega) = (5/16) * Hs^2 * omega_p^4 ./ omega.^5 .* exp(-(5/4)*(omega_p./omega).^4)
