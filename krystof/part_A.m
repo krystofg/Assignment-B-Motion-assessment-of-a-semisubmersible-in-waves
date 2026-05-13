@@ -3,7 +3,7 @@
 % Part A: Sea state, extreme values and Bretschneider spectrum
 
 clear; clc; close all;
-rng(1, 'twister');
+rng('shuffle');
 
 scriptDir = fileparts(mfilename('fullpath'));
 if isempty(scriptDir)
@@ -13,13 +13,14 @@ end
 %% Input data
 Hs = 5.5;                       % significant wave height [m]
 Tz = 10.0;                      % zero-upcrossing period [s]
-stormDuration = 3 * 3600;       % storm duration [s]
+stormDurationHours = 3;         % storm duration [h]
+stormDuration = stormDurationHours * 3600;  % storm duration [s]
 Nwaves = round(stormDuration / Tz);
 
 omega = (0.01:0.001:2*pi)';     % assignment frequency vector [rad/s]
 f = omega / (2*pi);             % frequency vector [Hz]
 
-fprintf('Approximate number of waves in one 3-hour storm: %d\n', Nwaves);
+fprintf('Approximate number of waves in one %.0f-hour storm: %d\n', stormDurationHours, Nwaves);
 
 %% Q1 - One likely realization of observed wave heights
 % Given CDF:
@@ -34,11 +35,14 @@ figure('Name', 'Q1 wave-height sample');
 histogram(H, 'BinMethod', 'fd');
 xlabel('Wave height H [m]');
 ylabel('Number of occurrences');
-title('Q1: Wave heights in one 3-hour storm');
+title(sprintf('Q1: Wave heights in one %.0f-hour storm', stormDurationHours));
 grid on;
 
 fprintf('\nQ1:\n');
 fprintf('Maximum wave height in one simulated storm: Hmax = %.4f m\n', Hmax_single);
+
+% Keep Q2-Q4 reproducible while allowing Q1 to vary when rng('shuffle') is used.
+rng(2, 'twister');
 
 %% Q2 - Distribution of storm maxima from 10,000 storms
 Nstorms = 10000;
@@ -60,7 +64,7 @@ f_wave = rayleighWaveHeightPDF(xfit, Hs);
 F_storm_theory = F_wave.^Nwaves;
 f_storm_theory = Nwaves .* f_wave .* F_wave.^(Nwaves - 1);
 
-figure('Name', 'Q2 storm maximum distribution');
+figQ2 = figure('Name', 'Q2 storm maximum distribution');
 histogram(Hmax_all, 'Normalization', 'pdf', 'BinMethod', 'fd');
 hold on;
 plot(xfit, yfit, 'r', 'LineWidth', 2);
@@ -77,49 +81,55 @@ fprintf('k     = %.6f\n', pdGEV.k);
 fprintf('sigma = %.6f\n', pdGEV.sigma);
 fprintf('mu    = %.6f\n', pdGEV.mu);
 
-%% Q3 - MPL Hmax if 10,000 such storms had occurred
-% The largest storm maximum over Nstorms storms is also the largest wave
-% among Nstorms*Nwaves individual Rayleigh-distributed wave heights.
+%% Q3 - MPL Hmax from the fitted distribution in Q2
+% The Q2 fit describes the distribution of Hmax in one storm. Therefore,
+% the MPL Hmax is the mode of that fitted one-storm maximum distribution.
+% Ochi/Rayleigh theory is evaluated with the number of waves in one storm.
 
-totalWaves = Nstorms * Nwaves;
-Hmax_MPL_ochi = rayleighExtremeModeFromScale(Hs/2, totalWaves);
+Hmax_MPL_ochi = rayleighExtremeModeFromScale(Hs/2, Nwaves);
 
-xmpl = linspace(0.75 * Hmax_MPL_ochi, 1.25 * Hmax_MPL_ochi, 50000)';
-F1_fit = cdf(pdGEV, xmpl);
-f1_fit = pdf(pdGEV, xmpl);
-f_largest_fit = Nstorms .* f1_fit .* F1_fit.^(Nstorms - 1);
-
-[~, idxMPL] = max(f_largest_fit);
-Hmax_MPL_fit = xmpl(idxMPL);
+[~, idxMPL] = max(yfit);
+Hmax_MPL_fit = xfit(idxMPL);
+Hmax_largest_observed_10000 = max(Hmax_all);
 
 fprintf('\nQ3:\n');
-fprintf('MPL largest Hmax over %d storms from GEV fit: %.4f m\n', Nstorms, Hmax_MPL_fit);
-fprintf('MPL largest Hmax from Ochi/Rayleigh theory: %.4f m\n', Hmax_MPL_ochi);
+fprintf('MPL Hmax from Q2 GEV fit: %.4f m\n', Hmax_MPL_fit);
+fprintf('MPL Hmax from Ochi/Rayleigh theory: %.4f m\n', Hmax_MPL_ochi);
 fprintf('Difference fit - theory: %.4f m\n', Hmax_MPL_fit - Hmax_MPL_ochi);
+fprintf('Largest simulated Hmax in the %d-storm sample: %.4f m\n', ...
+    Nstorms, Hmax_largest_observed_10000);
 
-figure('Name', 'Q3 largest maximum over storms');
-plot(xmpl, f_largest_fit, 'LineWidth', 2);
-hold on;
-xline(Hmax_MPL_fit, 'r--', 'LineWidth', 1.5);
-xline(Hmax_MPL_ochi, 'k:', 'LineWidth', 1.5);
-xlabel('Wave height H [m]');
-ylabel('PDF of largest H_{max}');
-title('Q3: Largest H_{max} over 10,000 storms');
-legend('GEV-based PDF', 'GEV MPL', 'Ochi/Rayleigh MPL', 'Location', 'best');
-grid on;
+figure(figQ2);
+yLimitsQ2 = ylim;
+tailMaskFit = xfit >= Hmax_MPL_fit;
+area(xfit(tailMaskFit), yfit(tailMaskFit), ...
+    'FaceColor', [0.25 0.45 0.85], 'FaceAlpha', 0.18, 'EdgeColor', 'none');
+plot([Hmax_MPL_fit Hmax_MPL_fit], yLimitsQ2, 'b-.', 'LineWidth', 1.5);
+plot([Hmax_MPL_ochi Hmax_MPL_ochi], yLimitsQ2, 'm:', 'LineWidth', 1.5);
+ylim(yLimitsQ2);
+legend('Simulation', 'GEV fit', 'Rayleigh order-statistic theory', ...
+    'Q4 right-tail probability', 'GEV MPL', ...
+    'Ochi/Rayleigh MPL', 'Location', 'best');
 
 %% Q4 - Chance of exceeding the MPL
-P_exceed_MPL_fit_10000storms = 1 - cdf(pdGEV, Hmax_MPL_fit)^Nstorms;
 P_exceed_MPL_fit_oneStorm = 1 - cdf(pdGEV, Hmax_MPL_fit);
-P_exceed_MPL_ochi = 1 - rayleighWaveHeightCDF(Hmax_MPL_ochi, Hs)^totalWaves;
+N_exceed_MPL_empirical = sum(Hmax_all > Hmax_MPL_fit);
+P_exceed_MPL_empirical_oneStorm = N_exceed_MPL_empirical / Nstorms;
+P_exceed_MPL_ochi_oneStorm = 1 - rayleighWaveHeightCDF(Hmax_MPL_ochi, Hs)^Nwaves;
+N_exceed_MPL_fit_expected = Nstorms * P_exceed_MPL_fit_oneStorm;
+N_exceed_MPL_ochi_expected = Nstorms * P_exceed_MPL_ochi_oneStorm;
 
 fprintf('\nQ4:\n');
-fprintf('Chance that the largest of %d storm maxima exceeds the GEV MPL: %.6f\n', ...
-    Nstorms, P_exceed_MPL_fit_10000storms);
-fprintf('Chance that one storm maximum exceeds the GEV MPL: %.8f\n', ...
+fprintf('Chance from Q2 fit that one storm Hmax exceeds the GEV MPL: %.8f\n', ...
     P_exceed_MPL_fit_oneStorm);
-fprintf('Ochi/Rayleigh chance of exceeding the theoretical MPL: %.6f\n', ...
-    P_exceed_MPL_ochi);
+fprintf('Empirical chance from Q2 sample: %.8f (%d of %d storms)\n', ...
+    P_exceed_MPL_empirical_oneStorm, N_exceed_MPL_empirical, Nstorms);
+fprintf('Ochi/Rayleigh chance that one storm Hmax exceeds the theoretical MPL: %.8f\n', ...
+    P_exceed_MPL_ochi_oneStorm);
+fprintf('Expected number of exceedances in %d storms from Q2 fit: %.4f\n', ...
+    Nstorms, N_exceed_MPL_fit_expected);
+fprintf('Expected number of exceedances in %d storms from Ochi/Rayleigh: %.4f\n', ...
+    Nstorms, N_exceed_MPL_ochi_expected);
 
 %% Q5 - Bretschneider spectrum
 % Bretschneider/Pierson-Moskowitz form in angular frequency:
@@ -172,9 +182,10 @@ fprintf('Comment: Hs and Tz are recovered closely; small differences come from f
 fprintf('\n===== SUMMARY PART A =====\n');
 fprintf('Input Hs = %.4f m, input Tz = %.4f s\n', Hs, Tz);
 fprintf('Q1 one-storm Hmax = %.4f m\n', Hmax_single);
-fprintf('Q3 GEV MPL over 10,000 storms = %.4f m\n', Hmax_MPL_fit);
+fprintf('Q3 GEV MPL from Q2 fit = %.4f m\n', Hmax_MPL_fit);
 fprintf('Q3 Ochi/Rayleigh MPL = %.4f m\n', Hmax_MPL_ochi);
-fprintf('Q4 exceedance probability over 10,000 storms = %.6f\n', P_exceed_MPL_fit_10000storms);
+fprintf('Q4 one-storm exceedance chance from Q2 fit = %.8f\n', P_exceed_MPL_fit_oneStorm);
+fprintf('Q4 expected exceedances in 10,000 storms = %.4f\n', N_exceed_MPL_fit_expected);
 fprintf('Q6 recovered Hs = %.4f m\n', Hs_from_m0);
 fprintf('Q6 recovered Tp = %.4f s\n', Tp_num);
 fprintf('Q6 recovered T1 = %.4f s\n', T1);
@@ -182,11 +193,14 @@ fprintf('Q6 recovered Tz = %.4f s\n', Tz_from_moments);
 
 partAFile = fullfile(scriptDir, 'PartA_results.mat');
 save(partAFile, ...
-    'Hs', 'Tz', 'stormDuration', 'Nwaves', 'Nstorms', ...
+    'Hs', 'Tz', 'stormDurationHours', 'stormDuration', 'Nwaves', 'Nstorms', ...
     'omega', 'f', 'S_omega', 'S_f', 'Tp', 'omega_p', ...
     'H', 'Hmax_single', 'Hmax_all', ...
-    'pdGEV', 'Hmax_MPL_fit', 'Hmax_MPL_ochi', ...
-    'P_exceed_MPL_fit_10000storms', 'P_exceed_MPL_fit_oneStorm', 'P_exceed_MPL_ochi', ...
+    'pdGEV', 'Hmax_MPL_fit', 'Hmax_MPL_ochi', 'Hmax_largest_observed_10000', ...
+    'P_exceed_MPL_fit_oneStorm', ...
+    'P_exceed_MPL_empirical_oneStorm', 'N_exceed_MPL_empirical', ...
+    'N_exceed_MPL_fit_expected', 'N_exceed_MPL_ochi_expected', ...
+    'P_exceed_MPL_ochi_oneStorm', ...
     'm0', 'm1', 'm2', 'Hs_from_m0', 'T1', 'Tz_from_moments', 'Tp_num');
 fprintf('Saved Part A results to: %s\n', partAFile);
 
