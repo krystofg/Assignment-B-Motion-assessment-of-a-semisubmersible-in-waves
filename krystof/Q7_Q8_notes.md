@@ -34,7 +34,7 @@ Predpoklady pouzite v MATLAB kodu:
 
 - Pro hydrostaticky vytlak a added mass sloupcu pouzivame delku `f = T - 2b`, tj. sloupce od hladiny po horni hranu pontonu.
 - Hloubka `d = T - b` zustava relevantni pro Paullingovu wave-excitation syntézu, protoze je to hloubka k pontoon centreline.
-- Pontoons aproximujeme jako dva rectangular boxes s prurezem `(2b) x (2b)` a delkou `L`.
+- Pontoons aproximujeme podle double-symmetric top view: dva full-length rectangular boxes s delkou `L` a dva side boxes mezi sloupci s delkou `L - 2D`. Prurez vsech pontonu je `(2b) x (2b)`.
 - Hustota morske vody je `rho = 1025 kg/m^3`.
 
 Platform mass:
@@ -42,7 +42,7 @@ Platform mass:
 ```text
 A_col = pi*(D/2)^2
 V_cols = 4*A_col*f
-V_pontoons = 2*L*(2b)*(2b)
+V_pontoons = (2*L + 2*(L - 2D))*(2b)*(2b)
 V_disp = V_cols + V_pontoons
 M = rho*V_disp
 ```
@@ -56,7 +56,7 @@ Added mass:
 
 ```text
 A_33_columns = 4*Cm_col*rho*pi*r_col^2*f
-A_33_pontoons = 2*Cm_pont*rho*pi*b^2*L
+A_33_pontoons = Cm_pont*rho*pi*b^2*(2*L + 2*(L - 2D))
 A_33 = A_33_columns + A_33_pontoons
 M_eff = M + A_33
 ```
@@ -64,10 +64,10 @@ M_eff = M + A_33
 Ocekavane numericke vysledky z aktualniho MATLAB modelu:
 
 ```text
-V_disp = 19954.999 m^3
-M = 20453.874 tons
-A_33 = 23668.561 tons
-M_eff = 44122.435 tons
+V_disp = 31549.015 m^3
+M = 32337.740 tons
+A_33 = 37762.247 tons
+M_eff = 70099.987 tons
 ```
 
 ## Q8 zadani
