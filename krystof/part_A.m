@@ -144,11 +144,11 @@ S_omega = (5/16) * Hs^2 * omega_p^4 ./ omega.^5 .* ...
     exp(-(5/4) * (omega_p ./ omega).^4);
 S_f = 2*pi * S_omega;          % S_f df = S_omega domega
 
-figure('Name', 'Q5 Bretschneider spectrum');
+figure('Name', 'Q5 wave spectrum');
 plot(f, S_f, 'LineWidth', 2);
 xlabel('Frequency f [Hz]');
 ylabel('S_\eta(f) [m^2/Hz]');
-title('Q5: Bretschneider wave spectrum');
+title('Q5: Wave spectrum for H_s = 5.5 m and T_z = 10 s');
 grid on;
 
 fprintf('\nQ5:\n');
